@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useTheme } from "next-themes";
 import {
   Cloud,
@@ -72,6 +72,15 @@ const getIcon = (slug: string): SimpleIconType => {
 
 export default function IconCloud({ iconSlugs }: DynamicCloudProps) {
   const { theme } = useTheme();
+  const [initialTheme, setInitialTheme] = useState<string | null>(null);
+  const cloudContainerRef = useRef<HTMLDivElement>(null);
+
+  // Capture the initial theme on mount
+  useEffect(() => {
+    if (initialTheme === null) {
+      setInitialTheme(theme || "light");
+    }
+  }, [theme, initialTheme]);
 
   const data: SimpleIconType[] = useMemo(() => {
     return iconSlugs.map((icon) => {
@@ -88,18 +97,48 @@ export default function IconCloud({ iconSlugs }: DynamicCloudProps) {
     }).filter(Boolean) as SimpleIconType[]
   }, [iconSlugs])
 
+  // Render icons only once on mount with initial theme, don't re-render when theme changes
   const renderedIcons = useMemo(() => {
-    if (!data) return null;
+    if (!data || initialTheme === null) return null;
 
     return data.map((icon) =>
-      renderCustomIcon(icon, theme || "light"),
+      renderCustomIcon(icon, initialTheme),
     );
-  }, [data, theme]);
+  }, [data, initialTheme]);
+
+  // Update icon colors when theme changes without re-rendering Cloud
+  useEffect(() => {
+    if (!cloudContainerRef.current || !theme || initialTheme === null) return;
+    
+    const bgHex = theme === "light" ? "#f3f2ef" : "#080510";
+    const fallbackHex = theme === "light" ? "#6e6e73" : "#ffffff";
+    
+    // Update SVG background colors
+    const svgs = cloudContainerRef.current.querySelectorAll('svg');
+    svgs.forEach((svg) => {
+      const rect = svg.querySelector('rect');
+      if (rect) {
+        rect.setAttribute('fill', bgHex);
+      }
+      
+      // Update path colors if they use the fallback color
+      const paths = svg.querySelectorAll('path');
+      paths.forEach((path) => {
+        const currentFill = path.getAttribute('fill');
+        // Only update if it looks like a fallback color
+        if (currentFill && (currentFill === '#6e6e73' || currentFill === '#ffffff')) {
+          path.setAttribute('fill', fallbackHex);
+        }
+      });
+    });
+  }, [theme, initialTheme]);
 
   return (
-    // @ts-ignore
-    <Cloud {...cloudProps}>
-      <>{renderedIcons}</>
-    </Cloud>
+    <div ref={cloudContainerRef}>
+      {/* @ts-ignore */}
+      <Cloud {...cloudProps}>
+        <>{renderedIcons}</>
+      </Cloud>
+    </div>
   );
 }
