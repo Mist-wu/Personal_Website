@@ -11,6 +11,18 @@ import {
 import type { SimpleIcon as SimpleIconType } from 'simple-icons'
 import * as simpleIcons from 'simple-icons'
 
+// Theme color constants
+const THEME_COLORS = {
+  light: {
+    bg: "#f3f2ef",
+    fallback: "#6e6e73"
+  },
+  dark: {
+    bg: "#080510",
+    fallback: "#ffffff"
+  }
+} as const;
+
 export const cloudProps: Omit<ICloud, "children"> = {
   containerProps: {
     style: {
@@ -39,8 +51,9 @@ export const cloudProps: Omit<ICloud, "children"> = {
 };
 
 export const renderCustomIcon = (icon: SimpleIcon, theme: string) => {
-  const bgHex = theme === "light" ? "#f3f2ef" : "#080510";
-  const fallbackHex = theme === "light" ? "#6e6e73" : "#ffffff";
+  const colors = THEME_COLORS[theme as keyof typeof THEME_COLORS] || THEME_COLORS.light;
+  const bgHex = colors.bg;
+  const fallbackHex = colors.fallback;
   const minContrastRatio = 1;
 
   return renderSimpleIcon({
@@ -75,10 +88,10 @@ export default function IconCloud({ iconSlugs }: DynamicCloudProps) {
   const [initialTheme, setInitialTheme] = useState<string | null>(null);
   const cloudContainerRef = useRef<HTMLDivElement>(null);
 
-  // Capture the initial theme on mount
+  // Capture the initial theme on mount (only once)
   useEffect(() => {
-    if (initialTheme === null) {
-      setInitialTheme(theme || "light");
+    if (initialTheme === null && theme) {
+      setInitialTheme(theme);
     }
   }, [theme, initialTheme]);
 
@@ -110,24 +123,27 @@ export default function IconCloud({ iconSlugs }: DynamicCloudProps) {
   useEffect(() => {
     if (!cloudContainerRef.current || !theme || initialTheme === null) return;
     
-    const bgHex = theme === "light" ? "#f3f2ef" : "#080510";
-    const fallbackHex = theme === "light" ? "#6e6e73" : "#ffffff";
+    const colors = THEME_COLORS[theme as keyof typeof THEME_COLORS] || THEME_COLORS.light;
     
-    // Update SVG background colors
+    // Update SVG background and fallback colors
     const svgs = cloudContainerRef.current.querySelectorAll('svg');
     svgs.forEach((svg) => {
+      // Update background rectangles
       const rect = svg.querySelector('rect');
       if (rect) {
-        rect.setAttribute('fill', bgHex);
+        rect.setAttribute('fill', colors.bg);
       }
       
       // Update path colors if they use the fallback color
       const paths = svg.querySelectorAll('path');
       paths.forEach((path) => {
         const currentFill = path.getAttribute('fill');
-        // Only update if it looks like a fallback color
-        if (currentFill && (currentFill === '#6e6e73' || currentFill === '#ffffff')) {
-          path.setAttribute('fill', fallbackHex);
+        // Only update if it looks like a fallback color (light or dark theme fallback)
+        if (currentFill && (
+          currentFill === THEME_COLORS.light.fallback || 
+          currentFill === THEME_COLORS.dark.fallback
+        )) {
+          path.setAttribute('fill', colors.fallback);
         }
       });
     });
